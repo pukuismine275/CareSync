@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Medicine Schedule</title>
+    <style>
+      /* Basic styling for the medicine list */
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+        background-color: #f4f4f9;
+      }
+      h1 {
+        text-align: center;
+        padding: 20px;
+      }
+      .medicine-list {
+        list-style-type: none;
+        padding: 0;
+      }
+      .medicine-item {
+        background-color: #fff;
+        border: 1px solid #ddd;
+        margin: 10px;
+        padding: 15px;
+        border-radius: 5px;
+      }
+      .medicine-item h2 {
+        margin: 0;
+      }
+      .days li {
+        margin: 5px 0;
+      }
+    </style>
+    <!-- Firebase SDK v8 -->
+    <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-database.js"></script>
+    <script>
+      // Firebase Configuration (replace with your Firebase credentials)
+      const firebaseConfig = {
+  apiKey: "AIzaSyAqbz6JQXKRsQL4vemywlxx5AHOKP5vlY0",
+  authDomain: "caresync-2b3b8.firebaseapp.com",
+  databaseURL: "https://caresync-2b3b8-default-rtdb.firebaseio.com",
+  projectId: "caresync-2b3b8",
+  storageBucket: "caresync-2b3b8.firebasestorage.app",
+  messagingSenderId: "372851911782",
+  appId: "1:372851911782:web:9f2491d89ffe4e1e5011a7"
+};
+
+      // Initialize Firebase
+      firebase.initializeApp(firebaseConfig);
+
+      // Medicine data fetched from Firebase
+      let medicines = [];
+
+      // Fetch medicines data from Firebase
+      function fetchMedicines() {
+        const medicinesRef = firebase.database().ref('medicines');
+        
+        // Real-time listener to fetch the medicines data in real-time
+        medicinesRef.on('value', (snapshot) => {
+          if (snapshot.exists()) {
+            medicines = snapshot.val();  // Firebase returns the data as an object
+            updateMedicineList();         // Pass the medicines object to update UI
+          } else {
+            console.log("No data available");
+          }
+        });
+      }
+
+      // Update the medicine list in the UI
+      function updateMedicineList() {
+        const medicineList = document.querySelector('.medicine-list');
+        medicineList.innerHTML = ''; // Clear previous list
+
+        // Convert the medicines object to an array
+        const medicinesArray = Object.values(medicines);  // This will give you an array of medicine objects
+
+        medicinesArray.forEach((medicine, index) => {
+          const medicineItem = document.createElement('li');
+          medicineItem.classList.add('medicine-item');
+          medicineItem.id = `medicine${index + 1}`;
+
+          medicineItem.innerHTML = `
+            <h2>${medicine.name}</h2>
+            <p>Time: <span id="time${index + 1}">${medicine.time}</span></p>
+            <p>Status: <span class="status" id="status${index + 1}">No</span></p>
+            <p>Days:</p>
+            <ul class="days">
+              ${Object.keys(medicine.days).map(day => 
+                `<li>${day}: <span id="${day.toLowerCase()}${index + 1}">${medicine.days[day] ? 'Yes' : 'No'}</span></li>`
+              ).join('')}
+            </ul>
+          `;
+
+          medicineList.appendChild(medicineItem);
+        });
+
+        updateMedicineStatus(); // Update status after fetching data
+      }
+
+      // Function to update the medicine status based on time and day
+      function updateMedicineStatus() {
+        const now = new Date();
+        const currentTime = now.toTimeString().substring(0, 5);  // Get current time in HH:MM format
+        const currentDay = now.toLocaleString('en-US', { weekday: 'long' });
+
+        // Convert the medicines object to an array
+        const medicinesArray = Object.values(medicines);  // This will give you an array of medicine objects
+
+        medicinesArray.forEach((medicine, index) => {
+          const statusElement = document.getElementById(`status${index + 1}`);
+          const timeElement = document.getElementById(`time${index + 1}`);
+          const dayElements = medicine.days;
+
+          // Check if it's the correct day and time
+          let status = 'No';  // Default status
+
+          if (dayElements[currentDay] && currentTime === medicine.time) {
+            status = "Yes";  // Medicine should be taken now
+          }
+
+          // Update status in the UI
+          statusElement.textContent = status;
+
+          // Write status to Firebase under 'medicine_status'
+          const medicineStatusRef = firebase.database().ref('medicine_status/medicine' + (index + 1));
+          medicineStatusRef.set(status === "Yes");  // Save true/false in Firebase
+        });
+      }
+
+      // Initial fetch and update
+      window.onload = () => {
+        fetchMedicines();
+
+        // Update every second and push to Firebase
+        setInterval(updateMedicineStatus, 1000);  // Update every second
+      };
+    </script>
+  </head>
+  <body>
+    <h1>Medicine Schedule</h1>
+    <ul class="medicine-list">
+      <!-- Medicines will be dynamically inserted here -->
+    </ul>
+  </body>
+</html>
